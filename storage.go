@@ -2,17 +2,27 @@ package GCPStorage
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"io"
+	"log"
 	"os"
 	"time"
 
 	"cloud.google.com/go/storage"
+	humanize "github.com/dustin/go-humanize"
 	"github.com/google/google-api-go-client/iterator"
 	"google.golang.org/api/option"
 	raw "google.golang.org/api/storage/v1"
 )
+
+//Meta holds important meta about a file
+type Meta struct {
+	MD5     string
+	Size    int64
+	SizeStr string
+}
 
 //export GOOGLE_APPLICATION_CREDENTIALS="/home/user/Downloads/[FILE_NAME].json"
 
@@ -21,6 +31,26 @@ var bucketName string
 //Init storage instance
 func Init(bucket string) {
 	bucketName = bucket
+}
+
+//CopyFile copy cloud storage file to another dst
+func CopyFile(src, dst string) error {
+
+	ctx := context.Background()
+	client, err := storage.NewClient(ctx)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+	bucket := client.Bucket(bucketName)
+	srcFile := bucket.Object(src)
+	dstFile := bucket.Object(dst)
+	// Just copy content.
+	_, err = dstFile.CopierFrom(srcFile).Run(ctx)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 //Upload local file to the current bucket
@@ -43,6 +73,27 @@ func Upload(localFile, dst string) error {
 		return err
 	}
 	return wc.Close()
+}
+
+//GetMeta get size
+func GetMeta(src string) (Meta, error) {
+	meta := Meta{}
+	ctx := context.Background()
+	client, err := storage.NewClient(ctx)
+	if err != nil {
+		return meta, err
+	}
+	defer client.Close()
+	bucket := client.Bucket(bucketName)
+	attrs, err := bucket.Object(src).Attrs(ctx)
+	if err != nil {
+		log.Println(err)
+		return meta, err
+	}
+	meta.MD5 = base64.StdEncoding.EncodeToString(attrs.MD5)
+	meta.Size = attrs.Size
+	meta.SizeStr = humanize.Bytes(uint64(meta.Size))
+	return meta, nil
 }
 
 //Exists check if file exists
@@ -110,6 +161,35 @@ func Attrs(filePath string) (attrs *storage.ObjectAttrs, err error) {
 	// [START get_metadata]
 	o := bucket.Object(filePath)
 	return o.Attrs(ctx)
+}
+
+//DeleteFolder delete all files under folder
+func DeleteFolder(folder string) error {
+	ctx := context.Background()
+	// get readonly client
+	client, err := storage.NewClient(ctx)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+	bucket := client.Bucket(bucketName)
+	it := bucket.Objects(ctx, &storage.Query{
+		Prefix: folder,
+	})
+	for {
+		attrs, err := it.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			return err
+		}
+		err = bucket.Object(attrs.Name).Delete(ctx)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 //DeleteOldFiles delete files from folder based on their age, time from created date

@@ -106,6 +106,12 @@ func main() {
 		panic(err)
 	}
 
+	//Delete folder
+	err = GCPStorage.DeleteFolder("instagram/cache")
+	if err != nil {
+		//handle error
+		panic(err)
+	}
 	//Delete files inside a folder which is one hour old or more
 	err = GCPStorage.DeleteOldFiles("instagram/", time.Hour)
 	if err != nil {
@@ -113,6 +119,7 @@ func main() {
 		panic(err)
 	}
 }
+
 
 
 ```
