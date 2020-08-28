@@ -8,6 +8,8 @@ import (
 	"io"
 	"log"
 	"os"
+	"regexp"
+	"sync"
 	"time"
 
 	"cloud.google.com/go/storage"
@@ -22,6 +24,7 @@ type Meta struct {
 	MD5     string
 	Size    int64
 	SizeStr string
+	Created time.Time
 }
 
 //export GOOGLE_APPLICATION_CREDENTIALS="/home/user/Downloads/[FILE_NAME].json"
@@ -31,6 +34,60 @@ var bucketName string
 //Init storage instance
 func Init(bucket string) {
 	bucketName = bucket
+}
+
+//CopyFolder copy cloud storage folder to another dst
+func CopyFolder(srcFolder, dstFolder string, multiple bool) error {
+	ctx := context.Background()
+	// get readonly client
+	client, err := storage.NewClient(ctx)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+	bucket := client.Bucket(bucketName)
+	it := bucket.Objects(ctx, &storage.Query{
+		Prefix: srcFolder,
+	})
+	wg := sync.WaitGroup{}
+	errs := []error{}
+	for {
+
+		attrs, err := it.Next()
+		if err != nil {
+			break
+		}
+
+		pat := regexp.MustCompile("^(.*?)" + srcFolder + "(.*)$")
+		repl := "${1}" + dstFolder + "$2"
+
+		dst := pat.ReplaceAllString(attrs.Name, repl)
+		println(attrs.Name, dst)
+		if multiple {
+			wg.Add(1)
+			go func() {
+				err = CopyFile(attrs.Name, dst)
+				errs = append(errs, err)
+				wg.Done()
+			}()
+
+		} else {
+			err = CopyFile(attrs.Name, dst)
+			if err != nil {
+				return err
+			}
+		}
+
+	}
+	if multiple {
+		wg.Wait()
+		for i := range errs {
+			if errs[i] != nil {
+				return err
+			}
+		}
+	}
+	return err
 }
 
 //CopyFile copy cloud storage file to another dst
@@ -93,6 +150,7 @@ func GetMeta(src string) (Meta, error) {
 	meta.MD5 = base64.StdEncoding.EncodeToString(attrs.MD5)
 	meta.Size = attrs.Size
 	meta.SizeStr = humanize.Bytes(uint64(meta.Size))
+	meta.Created = attrs.Created
 	return meta, nil
 }
 
@@ -178,12 +236,10 @@ func DeleteFolder(folder string) error {
 	})
 	for {
 		attrs, err := it.Next()
-		if err == iterator.Done {
-			break
-		}
 		if err != nil {
-			return err
+			return nil
 		}
+
 		err = bucket.Object(attrs.Name).Delete(ctx)
 		if err != nil {
 			return err
