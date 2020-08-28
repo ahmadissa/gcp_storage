@@ -4,8 +4,10 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"io"
+	"io/ioutil"
 	"log"
 	"os"
 	"regexp"
@@ -21,10 +23,11 @@ import (
 
 //Meta holds important meta about a file
 type Meta struct {
-	MD5     string
-	Size    int64
-	SizeStr string
-	Created time.Time
+	MD5        string
+	Size       int64
+	SizeStr    string
+	LastUpdate time.Time
+	Created    time.Time
 }
 
 //export GOOGLE_APPLICATION_CREDENTIALS="/home/user/Downloads/[FILE_NAME].json"
@@ -166,6 +169,57 @@ func Exists(filePath string) (bool, error) {
 	return false, errors.New("could not get checksum of the file")
 }
 
+//List all files in a bucket with a prefix
+//prefix can be a folder, if prefix is empty string the function will return all files in the bucket
+//limit is number of files to retrive, 0 means all
+func List(prefix string, limit int) (files []string, err error) {
+	ctx := context.Background()
+	client, err := storage.NewClient(ctx, option.WithScopes(raw.DevstorageReadOnlyScope))
+	if err != nil {
+		return nil, err
+	}
+	q := &storage.Query{
+		Prefix: prefix,
+	}
+	if prefix == "" {
+		q = nil
+	}
+	files = []string{}
+	it := client.Bucket(bucketName).Objects(ctx, q)
+	for {
+		attrs, err := it.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			break
+		}
+		files = append(files, attrs.Name)
+		if len(files) > limit && limit > 0 {
+			break
+		}
+	}
+	return
+
+}
+
+func read(client *storage.Client, bucket, object string) ([]byte, error) {
+	ctx := context.Background()
+	// [START download_file]
+	rc, err := client.Bucket(bucket).Object(object).NewReader(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer rc.Close()
+
+	data, err := ioutil.ReadAll(rc)
+	if err != nil {
+		return nil, err
+	}
+	return data, nil
+	// [END download_file]
+}
+
 //Delete storage file from the current bucket
 func Delete(filePath string) error {
 	ctx := context.Background()
@@ -176,6 +230,22 @@ func Delete(filePath string) error {
 	defer client.Close()
 	bucket := client.Bucket(bucketName)
 	return bucket.Object(filePath).Delete(ctx)
+}
+
+//ReadFile into object
+func ReadFile(filepath string, obj interface{}) error {
+	ctx := context.Background()
+	// get readonly client
+	client, err := storage.NewClient(ctx, option.WithScopes(raw.DevstorageReadOnlyScope))
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+	data, err := read(client, bucketName, filepath)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(data, obj)
 }
 
 //Download file from source (src) to local destination (dst)

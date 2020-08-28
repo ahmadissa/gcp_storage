@@ -91,6 +91,13 @@ func main() {
 	}
 	fmt.Printf("file attrs: %v\n", attrs)
 
+	//list all files
+	files, err := GCPStorage.List("")
+	if err != nil {
+		//handle error
+		panic(err)
+	}
+	fmt.Printf("files: %v\n", files)
 	//make public and get download url
 	// if you want to test the download url make sure you dont delete the file in last example function
 	url, err := GCPStorage.MakePublic(cloudFile)
