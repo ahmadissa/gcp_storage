@@ -8,7 +8,6 @@ import (
 	"errors"
 	"io"
 	"io/ioutil"
-	"log"
 	"os"
 	"regexp"
 	"sync"
@@ -65,7 +64,6 @@ func CopyFolder(srcFolder, dstFolder string, multiple bool) error {
 		repl := "${1}" + dstFolder + "$2"
 
 		dst := pat.ReplaceAllString(attrs.Name, repl)
-		println(attrs.Name, dst)
 		if multiple {
 			wg.Add(1)
 			go func() {
@@ -147,7 +145,7 @@ func GetMeta(src string) (Meta, error) {
 	bucket := client.Bucket(bucketName)
 	attrs, err := bucket.Object(src).Attrs(ctx)
 	if err != nil {
-		log.Println(err)
+		//log.Println(err)
 		return meta, err
 	}
 	meta.MD5 = base64.StdEncoding.EncodeToString(attrs.MD5)
