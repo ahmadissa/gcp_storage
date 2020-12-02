@@ -15,7 +15,7 @@ import (
 
 	"cloud.google.com/go/storage"
 	humanize "github.com/dustin/go-humanize"
-	"github.com/google/google-api-go-client/iterator"
+	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
 	raw "google.golang.org/api/storage/v1"
 )

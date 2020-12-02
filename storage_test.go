@@ -106,3 +106,26 @@ func TestSize(t *testing.T) {
 	}
 
 }
+
+func TestCopyFolder(t *testing.T) {
+	srcFolder := "testFiles"
+	dstFolder := "testFiles_dst"
+	src := srcFolder + "/localfile.txt"
+	dst := dstFolder + "/tempFile.txt"
+
+	err := Upload(src, dst)
+	if err != nil {
+		t.Error(err)
+	}
+	defer func() {
+		err = DeleteFolder(srcFolder)
+		if err != nil {
+			t.Error(err)
+		}
+		err = DeleteFolder(dstFolder)
+		if err != nil {
+			t.Error(err)
+		}
+	}()
+	CopyFolder(srcFolder, dstFolder, true)
+}
