@@ -111,13 +111,8 @@ func CopyFile(src, dst string) error {
 	return nil
 }
 
-//Upload local file to the current bucket
-func Upload(localFile, dst string) error {
-	f, err := os.Open(localFile)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
+//UploadFromReader upload from reader to GCP file
+func UploadFromReader(reader io.Reader, dst string) error {
 	ctx := context.Background()
 	client, err := storage.NewClient(ctx)
 	if err != nil {
@@ -125,12 +120,21 @@ func Upload(localFile, dst string) error {
 	}
 	defer client.Close()
 	bucket := client.Bucket(bucketName)
-
 	wc := bucket.Object(dst).NewWriter(ctx)
-	if _, err = io.Copy(wc, f); err != nil {
+	if _, err = io.Copy(wc, reader); err != nil {
 		return err
 	}
 	return wc.Close()
+}
+
+//Upload local file to the current bucket
+func Upload(localFile, dst string) error {
+	fileReader, err := os.Open(localFile)
+	if err != nil {
+		return err
+	}
+	defer fileReader.Close()
+	return UploadFromReader(fileReader, dst)
 }
 
 //GetMeta get size
