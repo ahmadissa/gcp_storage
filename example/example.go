@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/ahmadissa/gcp_storage"
+	GCPStorage "github.com/ahmadissa/gcp_storage"
 )
 
 func main() {
@@ -55,7 +55,7 @@ func main() {
 	fmt.Printf("file attrs: %v\n", attrs)
 
 	//list all files
-	files, err := GCPStorage.List("")
+	files, err := GCPStorage.List("", 1)
 	if err != nil {
 		//handle error
 		panic(err)
