@@ -23,11 +23,12 @@ import (
 
 //Meta holds important meta about a file
 type Meta struct {
-	MD5        string
-	Size       int64
-	SizeStr    string
-	LastUpdate time.Time
-	Created    time.Time
+	MD5         string
+	Size        int64
+	SizeStr     string
+	LastUpdate  time.Time
+	Created     time.Time
+	ContentType string
 }
 
 //export GOOGLE_APPLICATION_CREDENTIALS="/home/user/Downloads/[FILE_NAME].json"
@@ -189,6 +190,7 @@ func GetMeta(src string) (Meta, error) {
 	meta.Size = attrs.Size
 	meta.SizeStr = humanize.Bytes(uint64(meta.Size))
 	meta.Created = attrs.Created
+	meta.ContentType = attrs.ContentType
 	return meta, nil
 }
 
