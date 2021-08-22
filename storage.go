@@ -238,21 +238,20 @@ func List(prefix string, limit int) (files []string, err error) {
 
 }
 
-func read(client *storage.Client, bucket, object string) ([]byte, error) {
+//GetFileReader get file reader from gcp bucket
+func GetFileReader(object string, optionalBucket ...string) (reader io.Reader, err error) {
 	ctx := context.Background()
-	// [START download_file]
-	rc, err := client.Bucket(bucket).Object(object).NewReader(ctx)
+	// get readonly client
+	client, err := storage.NewClient(ctx, option.WithScopes(raw.DevstorageReadOnlyScope))
 	if err != nil {
-		return nil, err
+		return
 	}
-	defer rc.Close()
-
-	data, err := ioutil.ReadAll(rc)
-	if err != nil {
-		return nil, err
+	defer client.Close()
+	useBucket := bucketName
+	if len(optionalBucket) == 1 {
+		useBucket = optionalBucket[0]
 	}
-	return data, nil
-	// [END download_file]
+	return client.Bucket(useBucket).Object(object).NewReader(ctx)
 }
 
 //Delete storage file from the current bucket
@@ -268,43 +267,28 @@ func Delete(filePath string) error {
 }
 
 //ReadFile into object
-func ReadFile(filepath string, obj interface{}) error {
-	ctx := context.Background()
-	// get readonly client
-	client, err := storage.NewClient(ctx, option.WithScopes(raw.DevstorageReadOnlyScope))
+func ReadFile(filepath string, obj interface{}) (err error) {
+	reader, err := GetFileReader(filepath)
 	if err != nil {
-		return err
+		return
 	}
-	defer client.Close()
-	data, err := read(client, bucketName, filepath)
+	data, err := ioutil.ReadAll(reader)
 	if err != nil {
-		return err
+		return
 	}
 	return json.Unmarshal(data, obj)
 }
 
 //Download file from source (src) to local destination (dst)
 func Download(src, dst string) error {
-	ctx := context.Background()
-	// get readonly client
-	client, err := storage.NewClient(ctx, option.WithScopes(raw.DevstorageReadOnlyScope))
-	if err != nil {
-		return err
-	}
-	defer client.Close()
-	bucket := client.Bucket(bucketName)
-	rc, err := bucket.Object(src).NewReader(ctx)
-	if err != nil {
-		return err
-	}
-	defer rc.Close()
+	reader, err := GetFileReader(src)
 	dstFile, err := os.Create(dst)
 	if err != nil {
 		return err
 	}
 	defer dstFile.Close()
 
-	_, err = io.Copy(dstFile, rc)
+	_, err = io.Copy(dstFile, reader)
 	if err != nil {
 		return err
 	}
