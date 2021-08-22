@@ -1,10 +1,25 @@
 package GCPStorage
 
 import (
+	"io/ioutil"
+	"net/http"
 	"os"
 	"testing"
+	"time"
 )
 
+func readURL(httpURL string) (string, error) {
+	resp, err := http.Get(httpURL)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+	data, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return "", err
+	}
+	return string(data), nil
+}
 func TestInit(t *testing.T) {
 	bucketName := os.Getenv("GOOGLE_CLOUD_BUCKET")
 	if bucketName == "" {
@@ -39,6 +54,32 @@ func TestUploadDeleteExists(t *testing.T) {
 	}
 }
 
+func TestGetSignedURL(t *testing.T) {
+	src := "testFiles/localfile.txt"
+	dst := "tempFileSignged.txt"
+	sourceFile, err := ioutil.ReadFile(src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = Upload(src, dst)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer Delete(dst)
+	signedURL, err := GetSignedURL(dst, time.Second*3)
+	dstData, err := readURL(signedURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(dstData) != string(sourceFile) {
+		t.Fatal("Remote file does not match local file")
+	}
+	time.Sleep(4 * time.Second)
+	dstData, err = readURL(signedURL)
+	if err == nil && string(dstData) == string(sourceFile) {
+		t.Fatal("Remote file did not expire")
+	}
+}
 func TestDownload(t *testing.T) {
 	src := "testFiles/localfile.txt"
 	dst := "tempFile.txt"

@@ -15,6 +15,7 @@ import (
 
 	"cloud.google.com/go/storage"
 	humanize "github.com/dustin/go-humanize"
+	"golang.org/x/oauth2/google"
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
 	raw "google.golang.org/api/storage/v1"
@@ -125,6 +126,34 @@ func UploadFromReader(reader io.Reader, dst string) error {
 		return err
 	}
 	return wc.Close()
+}
+
+//GetSignedURL get signed url with expire time
+func GetSignedURL(objectPath string, duration time.Duration) (string, error) {
+	ctx := context.Background()
+	cre, err := google.FindDefaultCredentials(ctx)
+	if err != nil {
+		return "", err
+	}
+	conf, err := google.JWTConfigFromJSON(cre.JSON)
+	if conf == nil {
+		return "", errors.New("Error getting Default Credentials")
+	}
+	if err != nil {
+		return "", err
+	}
+	opts := &storage.SignedURLOptions{
+		Scheme:         storage.SigningSchemeV4,
+		Method:         "GET",
+		GoogleAccessID: conf.Email,
+		PrivateKey:     conf.PrivateKey,
+		Expires:        time.Now().Add(duration),
+	}
+	signedURL, err := storage.SignedURL(bucketName, objectPath, opts)
+	if err != nil {
+		return "", err
+	}
+	return signedURL, nil
 }
 
 //Upload local file to the current bucket
