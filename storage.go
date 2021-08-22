@@ -129,7 +129,7 @@ func UploadFromReader(reader io.Reader, dst string) error {
 }
 
 //GetSignedURL get signed url with expire time
-func GetSignedURL(objectPath string, duration time.Duration) (string, error) {
+func GetSignedURL(objectPath string, duration time.Duration, optionalBucket ...string) (string, error) {
 	ctx := context.Background()
 	cre, err := google.FindDefaultCredentials(ctx)
 	if err != nil {
@@ -149,7 +149,11 @@ func GetSignedURL(objectPath string, duration time.Duration) (string, error) {
 		PrivateKey:     conf.PrivateKey,
 		Expires:        time.Now().Add(duration),
 	}
-	signedURL, err := storage.SignedURL(bucketName, objectPath, opts)
+	useBucket := bucketName
+	if len(optionalBucket) == 1 {
+		useBucket = optionalBucket[0]
+	}
+	signedURL, err := storage.SignedURL(useBucket, objectPath, opts)
 	if err != nil {
 		return "", err
 	}
