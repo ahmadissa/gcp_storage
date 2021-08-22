@@ -176,7 +176,7 @@ func Upload(localFile, dst string) error {
 }
 
 //GetMeta get size
-func GetMeta(src string) (Meta, error) {
+func GetMeta(src string, optionalBucket ...string) (Meta, error) {
 	meta := Meta{}
 	ctx := context.Background()
 	client, err := storage.NewClient(ctx)
@@ -184,7 +184,11 @@ func GetMeta(src string) (Meta, error) {
 		return meta, err
 	}
 	defer client.Close()
-	bucket := client.Bucket(bucketName)
+	useBucket := bucketName
+	if len(optionalBucket) == 1 {
+		useBucket = optionalBucket[0]
+	}
+	bucket := client.Bucket(useBucket)
 	attrs, err := bucket.Object(src).Attrs(ctx)
 	if err != nil {
 		//log.Println(err)
