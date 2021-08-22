@@ -114,14 +114,18 @@ func CopyFile(src, dst string) error {
 }
 
 //UploadFromReader upload from reader to GCP file
-func UploadFromReader(reader io.Reader, dst string) error {
+func UploadFromReader(reader io.Reader, dst string, optionalBucket ...string) error {
 	ctx := context.Background()
 	client, err := storage.NewClient(ctx)
 	if err != nil {
 		return err
 	}
 	defer client.Close()
-	bucket := client.Bucket(bucketName)
+	useBucket := bucketName
+	if len(optionalBucket) == 1 {
+		useBucket = optionalBucket[0]
+	}
+	bucket := client.Bucket(useBucket)
 	wc := bucket.Object(dst).NewWriter(ctx)
 	if _, err = io.Copy(wc, reader); err != nil {
 		return err
