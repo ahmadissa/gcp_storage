@@ -1,4 +1,4 @@
-package GCPStorage
+package Storage
 
 import (
 	"context"
