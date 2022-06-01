@@ -1,4 +1,4 @@
-package Storage
+package GCPStorage
 
 import (
 	"io/ioutil"
