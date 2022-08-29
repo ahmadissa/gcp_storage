@@ -126,7 +126,17 @@ func TestMD5(t *testing.T) {
 	}
 
 }
+func TestMD5File(t *testing.T) {
+	src := "testFiles/localfile.txt"
+	md5, err := MD5file(src)
+	if err != nil {
+		t.Error(err)
+	}
+	if md5 != "f20d9f2072bbeb6691c0f9c5099b01f3" {
+		t.Error("md5 didnt match expecting f20d9f2072bbeb6691c0f9c5099b01f3, got:" + md5)
+	}
 
+}
 func TestSize(t *testing.T) {
 	src := "testFiles/localfile.txt"
 	dst := "tempFile.txt"

@@ -2,6 +2,7 @@ package GCPStorage
 
 import (
 	"context"
+	"crypto/md5"
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
@@ -23,6 +24,30 @@ import (
 
 type Bucket struct {
 	bucketName string
+}
+
+func MD5fileBytes(url string) (hash []byte, err error) {
+	file, err := os.Open(url)
+	if err != nil {
+		return
+	}
+	defer file.Close()
+	md5h := md5.New()
+	_, err = io.Copy(md5h, file)
+	if err != nil {
+		return
+	}
+	hash = md5h.Sum(nil)[:16]
+	return
+}
+
+//MD5file
+func MD5file(url string) (string, error) {
+	hash, err := MD5fileBytes(url)
+	if err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(hash), nil
 }
 
 //Meta holds important meta about a file
@@ -175,6 +200,26 @@ func (b *Bucket) Upload(localFile, dst string) error {
 	}
 	defer fileReader.Close()
 	return b.UploadFromReader(fileReader, dst)
+}
+
+//UploadVerify local file to the current bucket and perform checksum after uploading
+func (b *Bucket) UploadVerify(localFile, dst string) error {
+	localMD5, err := MD5file(localFile)
+	if err != nil {
+		return err
+	}
+	err = b.Upload(localFile, dst)
+	if err != nil {
+		return err
+	}
+	remoteMD5, err := b.MD5(dst)
+	if err != nil {
+		return err
+	}
+	if remoteMD5 != localMD5 {
+		return errors.New("UploadVerify: local and remote md5 didnt match")
+	}
+	return nil
 }
 
 //GetMeta get size
