@@ -41,7 +41,7 @@ func MD5fileBytes(url string) (hash []byte, err error) {
 	return
 }
 
-//MD5file
+// MD5file
 func MD5file(url string) (string, error) {
 	hash, err := MD5fileBytes(url)
 	if err != nil {
@@ -50,7 +50,7 @@ func MD5file(url string) (string, error) {
 	return hex.EncodeToString(hash), nil
 }
 
-//Meta holds important meta about a file
+// Meta holds important meta about a file
 type Meta struct {
 	MD5         string
 	Size        int64
@@ -62,12 +62,45 @@ type Meta struct {
 
 //export GOOGLE_APPLICATION_CREDENTIALS="/home/user/Downloads/[FILE_NAME].json"
 
-//Init storage instance
+// Init storage instance
 func (b *Bucket) Init(bucket string) {
 	b.bucketName = bucket
 }
 
-//CopyFolder copy cloud storage folder to another dst
+// GetFolderSize gets the size in bytes of a folder in the bucket
+func (b *Bucket) GetFolderSize(prefix string) (int64, error) {
+	ctx := context.Background()
+
+	// Create a client.
+	client, err := storage.NewClient(ctx)
+	if err != nil {
+		return 0, err
+	}
+	defer client.Close()
+
+	// Initialize total size variable
+	var totalSize int64
+
+	// Create a query to list objects with the specified prefix
+	query := &storage.Query{Prefix: prefix}
+	it := client.Bucket(b.bucketName).Objects(ctx, query)
+
+	// Iterate over the objects and sum their sizes
+	for {
+		objAttrs, err := it.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			return 0, err
+		}
+		totalSize += objAttrs.Size
+	}
+
+	return totalSize, nil
+}
+
+// CopyFolder copy cloud storage folder to another dst
 func (b *Bucket) CopyFolder(srcFolder, dstFolder string, multiple bool) error {
 	ctx := context.Background()
 	// get readonly client
@@ -120,7 +153,7 @@ func (b *Bucket) CopyFolder(srcFolder, dstFolder string, multiple bool) error {
 	return err
 }
 
-//CopyFile copy cloud storage file to another dst
+// CopyFile copy cloud storage file to another dst
 func (b *Bucket) CopyFile(src, dst string) error {
 
 	ctx := context.Background()
@@ -140,7 +173,7 @@ func (b *Bucket) CopyFile(src, dst string) error {
 	return nil
 }
 
-//UploadFromReader upload from reader to GCP file
+// UploadFromReader upload from reader to GCP file
 func (b *Bucket) UploadFromReader(reader io.Reader, dst string, optionalBucket ...string) error {
 	ctx := context.Background()
 	client, err := storage.NewClient(ctx)
@@ -160,7 +193,7 @@ func (b *Bucket) UploadFromReader(reader io.Reader, dst string, optionalBucket .
 	return wc.Close()
 }
 
-//GetSignedURL get signed url with expire time
+// GetSignedURL get signed url with expire time
 func (b *Bucket) GetSignedURL(objectPath string, duration time.Duration, optionalBucket ...string) (string, error) {
 	ctx := context.Background()
 	cre, err := google.FindDefaultCredentials(ctx)
@@ -192,7 +225,7 @@ func (b *Bucket) GetSignedURL(objectPath string, duration time.Duration, optiona
 	return signedURL, nil
 }
 
-//Upload local file to the current bucket
+// Upload local file to the current bucket
 func (b *Bucket) Upload(localFile, dst string) error {
 	fileReader, err := os.Open(localFile)
 	if err != nil {
@@ -202,7 +235,7 @@ func (b *Bucket) Upload(localFile, dst string) error {
 	return b.UploadFromReader(fileReader, dst)
 }
 
-//UploadVerify local file to the current bucket and perform checksum after uploading
+// UploadVerify local file to the current bucket and perform checksum after uploading
 func (b *Bucket) UploadVerify(localFile, dst string) error {
 	localMD5, err := MD5file(localFile)
 	if err != nil {
@@ -222,7 +255,7 @@ func (b *Bucket) UploadVerify(localFile, dst string) error {
 	return nil
 }
 
-//GetMeta get size
+// GetMeta get size
 func (b *Bucket) GetMeta(src string, optionalBucket ...string) (Meta, error) {
 	meta := Meta{}
 	ctx := context.Background()
@@ -249,7 +282,7 @@ func (b *Bucket) GetMeta(src string, optionalBucket ...string) (Meta, error) {
 	return meta, nil
 }
 
-//Exists check if file exists
+// Exists check if file exists
 func (b *Bucket) Exists(filePath string) (bool, error) {
 	md5, err := b.MD5(filePath)
 	if err != nil {
@@ -261,9 +294,9 @@ func (b *Bucket) Exists(filePath string) (bool, error) {
 	return false, errors.New("could not get checksum of the file")
 }
 
-//List all files in a bucket with a prefix
-//prefix can be a folder, if prefix is empty string the function will return all files in the bucket
-//limit is number of files to retrive, 0 means all
+// List all files in a bucket with a prefix
+// prefix can be a folder, if prefix is empty string the function will return all files in the bucket
+// limit is number of files to retrive, 0 means all
 func (b *Bucket) List(prefix string, limit int) (files []string, err error) {
 	ctx := context.Background()
 	client, err := storage.NewClient(ctx, option.WithScopes(raw.DevstorageReadOnlyScope))
@@ -295,7 +328,7 @@ func (b *Bucket) List(prefix string, limit int) (files []string, err error) {
 
 }
 
-//GetFileReader get file reader from gcp bucket
+// GetFileReader get file reader from gcp bucket
 func (b *Bucket) GetFileReader(object string, optionalBucket ...string) (reader io.Reader, err error) {
 	ctx := context.Background()
 	// get readonly client
@@ -311,7 +344,7 @@ func (b *Bucket) GetFileReader(object string, optionalBucket ...string) (reader 
 	return client.Bucket(useBucket).Object(object).NewReader(ctx)
 }
 
-//Delete storage file from the current bucket
+// Delete storage file from the current bucket
 func (b *Bucket) Delete(filePath string) error {
 	ctx := context.Background()
 	client, err := storage.NewClient(ctx)
@@ -323,7 +356,7 @@ func (b *Bucket) Delete(filePath string) error {
 	return bucket.Object(filePath).Delete(ctx)
 }
 
-//ReadFile into object
+// ReadFile into object
 func (b *Bucket) ReadFile(filepath string, obj interface{}) (err error) {
 	reader, err := b.GetFileReader(filepath)
 	if err != nil {
@@ -336,7 +369,7 @@ func (b *Bucket) ReadFile(filepath string, obj interface{}) (err error) {
 	return json.Unmarshal(data, obj)
 }
 
-//Download file from source (src) to local destination (dst)
+// Download file from source (src) to local destination (dst)
 func (b *Bucket) Download(src, dst string) error {
 	reader, err := b.GetFileReader(src)
 	dstFile, err := os.Create(dst)
@@ -352,7 +385,7 @@ func (b *Bucket) Download(src, dst string) error {
 	return nil
 }
 
-//Attrs returns the metadata for the bucket.
+// Attrs returns the metadata for the bucket.
 func (b *Bucket) Attrs(filePath string) (attrs *storage.ObjectAttrs, err error) {
 	ctx := context.Background()
 	// get readonly client
@@ -367,7 +400,7 @@ func (b *Bucket) Attrs(filePath string) (attrs *storage.ObjectAttrs, err error) 
 	return o.Attrs(ctx)
 }
 
-//DeleteFolder delete all files under folder
+// DeleteFolder delete all files under folder
 func (b *Bucket) DeleteFolder(folder string) error {
 	ctx := context.Background()
 	// get readonly client
@@ -394,7 +427,7 @@ func (b *Bucket) DeleteFolder(folder string) error {
 	return nil
 }
 
-//DeleteOldFiles delete files from folder based on their age, time from created date
+// DeleteOldFiles delete files from folder based on their age, time from created date
 func (b *Bucket) DeleteOldFiles(folder string, fileAge time.Duration) error {
 	ctx := context.Background()
 	// get readonly client
@@ -426,7 +459,7 @@ func (b *Bucket) DeleteOldFiles(folder string, fileAge time.Duration) error {
 	return nil
 }
 
-//Size get the size of the file in int64
+// Size get the size of the file in int64
 func (b *Bucket) Size(filePath string) (size int64, err error) {
 	attrs, err := b.Attrs(filePath)
 	if err != nil {
@@ -436,7 +469,7 @@ func (b *Bucket) Size(filePath string) (size int64, err error) {
 	return
 }
 
-//MakePublic make file public (readonly) and retrive the download url
+// MakePublic make file public (readonly) and retrive the download url
 func (b *Bucket) MakePublic(filePath string) (downloadURL string, err error) {
 	ctx := context.Background()
 	client, err := storage.NewClient(ctx)
@@ -452,7 +485,7 @@ func (b *Bucket) MakePublic(filePath string) (downloadURL string, err error) {
 	return "https://storage.googleapis.com/" + b.bucketName + "/" + filePath, nil
 }
 
-//MD5 get the md5 checksum of a file in a bucket
+// MD5 get the md5 checksum of a file in a bucket
 func (b *Bucket) MD5(filePath string) (md5String string, err error) {
 	attrs, err := b.Attrs(filePath)
 	if err != nil {
