@@ -183,3 +183,26 @@ func TestCopyFolder(t *testing.T) {
 	}()
 	bucket.CopyFolder(srcFolder, dstFolder, true)
 }
+
+func TestUploadFromURL(t *testing.T) {
+	bucket := getBucket()
+	dst := "uploadFromURL/test-file.jpg"
+	url := "https://via.placeholder.com/150" // Small image for testing
+
+	err := bucket.UploadFromURL(url, dst)
+	if err != nil {
+		t.Fatalf("UploadFromURL failed: %v", err)
+	}
+	defer func() {
+		_ = bucket.Delete(dst)
+	}()
+
+	// Check if file exists
+	exists, err := bucket.Exists(dst)
+	if err != nil {
+		t.Fatalf("Exists check failed: %v", err)
+	}
+	if !exists {
+		t.Fatal("Uploaded file from URL does not exist in bucket")
+	}
+}

@@ -7,8 +7,10 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"regexp"
 	"sync"
@@ -497,4 +499,46 @@ func (b *Bucket) MD5(filePath string) (md5String string, err error) {
 	}
 	err = errors.New("could not get md5 of the file")
 	return
+}
+
+// UploadFromURL streams a file from a public HTTPS URL directly into GCP Storage without saving locally.
+func (b *Bucket) UploadFromURL(fileURL, dst string, optionalBucket ...string) error {
+	ctx := context.Background()
+
+	// Make HTTP request
+	resp, err := http.Get(fileURL)
+	if err != nil {
+		return fmt.Errorf("failed to fetch file from URL: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("non-200 response from file URL: %s", resp.Status)
+	}
+
+	// Initialize GCP storage client
+	client, err := storage.NewClient(ctx)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+
+	// Choose target bucket
+	useBucket := b.bucketName
+	if len(optionalBucket) == 1 {
+		useBucket = optionalBucket[0]
+	}
+
+	// Create writer for the destination file
+	writer := client.Bucket(useBucket).Object(dst).NewWriter(ctx)
+	writer.ContentType = resp.Header.Get("Content-Type")
+	writer.ChunkSize = 0 // Use internal buffering
+
+	// Stream from response to GCS writer
+	if _, err := io.Copy(writer, resp.Body); err != nil {
+		writer.CloseWithError(err)
+		return err
+	}
+
+	return writer.Close()
 }
